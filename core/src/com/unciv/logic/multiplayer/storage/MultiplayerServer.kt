@@ -44,7 +44,10 @@ class MultiplayerServer(
             mapOf("Authorization" to settings.getAuthHeader())
         } else authenticationHeader
 
-        return if (getServerUrl() == Constants.dropboxMultiplayerServer) DropBox
+        val server = getServerUrl()
+        return if (server == Constants.dropboxMultiplayerServer) DropBox
+        // Yandex Disk (and a few common spellings/aliases) uses the same APIv0 style file storage
+        else if (Constants.isYandexDiskServer(server)) YandexDisk
         else UncivServerFileStorage.apply {
             serverUrl = this@MultiplayerServer.getServerUrl()
             this.authHeader = authHeader
