@@ -317,7 +317,9 @@ class Multiplayer {
 
     companion object {
         fun usesCustomServer() = UncivGame.Current.settings.multiplayer.getServer() != Constants.dropboxMultiplayerServer
-        fun usesDropbox() = !usesCustomServer()
+                && !Constants.isYandexDiskServer(UncivGame.Current.settings.multiplayer.getServer())
+        fun usesDropbox() = UncivGame.Current.settings.multiplayer.getServer() == Constants.dropboxMultiplayerServer
+        fun usesYandexDisk() = Constants.isYandexDiskServer(UncivGame.Current.settings.multiplayer.getServer())
     }
 }
 
