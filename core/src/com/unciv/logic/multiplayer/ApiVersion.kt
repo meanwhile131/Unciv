@@ -68,7 +68,7 @@ enum class ApiVersion {
          *   or de-serialization problems (ony when [suppress] is false)
          */
         suspend fun detect(baseUrl: String, suppress: Boolean = true, timeout: Long? = null): ApiVersion? {
-            if (baseUrl == Constants.dropboxMultiplayerServer) {
+            if (baseUrl == Constants.dropboxMultiplayerServer || Constants.isYandexDiskServer(baseUrl)) {
                 return APIv0
             }
             val fixedBaseUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
