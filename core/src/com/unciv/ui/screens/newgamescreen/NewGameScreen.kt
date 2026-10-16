@@ -168,6 +168,7 @@ class NewGameScreen(
         if (gameSetupInfo.gameParameters.isOnlineMultiplayer) {
             if (!checkConnectionToMultiplayerServer())
                 return if (Multiplayer.usesCustomServer()) "Couldn't connect to Multiplayer Server!"
+                    else if (Multiplayer.usesYandexDisk()) "Couldn't connect to Yandex Disk!"
                     else "Couldn't connect to Dropbox!"
 
             for (player in gameSetupInfo.gameParameters.players.filter { it.playerType == PlayerType.Human }) {
@@ -286,7 +287,11 @@ class NewGameScreen(
     private fun checkConnectionToMultiplayerServer(): Boolean {
         return try {
             val multiplayerServer = UncivGame.Current.settings.multiplayer.getServer()
-            val u = URI(if (Multiplayer.usesDropbox()) "https://content.dropboxapi.com" else multiplayerServer).toURL()
+            val u = URI(when {
+                Multiplayer.usesDropbox() -> "https://content.dropboxapi.com"
+                Multiplayer.usesYandexDisk() -> "https://cloud-api.yandex.net"
+                else -> multiplayerServer
+            }).toURL()
             val con = u.openConnection()
             con.connectTimeout = 3000
             con.connect()
