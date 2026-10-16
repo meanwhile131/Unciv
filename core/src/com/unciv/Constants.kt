@@ -116,7 +116,18 @@ object Constants {
     const val simulationCiv2 = "SimulationCiv2"
 
     const val dropboxMultiplayerServer = "Dropbox"
+    const val yandexDiskMultiplayerServer = "Yandex Disk"
     const val uncivXyzServer = "https://uncivserver.xyz"
+
+    /**
+     * Returns `true` if the given multiplayer server identifier refers to Yandex Disk.
+     * Accepts various capitalizations and spellings ("YandexDisk", "yandex disk", ...).
+     */
+    fun isYandexDiskServer(server: String?): Boolean {
+        if (server.isNullOrBlank()) return false
+        val normalized = server.trim().lowercase().replace(Regex("[^a-z0-9]"), "")
+        return normalized == "yandexdisk"
+    }
 
     const val defaultTileset = "HexaRealm"
     /** Default for TileSetConfig.fallbackTileSet - Don't change unless you've also moved the crosshatch, borders, and arrows as well */
