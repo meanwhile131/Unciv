@@ -84,11 +84,9 @@ internal class MultiplayerTab(
     private fun addMultiplayerServerOptions(toUpdate: Iterable<RefreshSelectOptions>) {
         val connectionToServerButton = "Check connection".toTextButton()
 
-        val textToShowForOnlineMultiplayerAddress = if (Multiplayer.usesCustomServer()) {
-            mpSettings.getServer()
-        } else {
-            "https://"
-        }
+        // Show the currently configured server (including built-in backends such as
+        // "Dropbox" / "Yandex Disk") so the selection is visible after reopening.
+        val textToShowForOnlineMultiplayerAddress = mpSettings.getServer()
         val multiplayerServerTextField = UncivTextField("Server address", textToShowForOnlineMultiplayerAddress)
         multiplayerServerTextField.setTextFieldFilter { _, c -> c !in " \r\n\t\\" }
         multiplayerServerTextField.programmaticChangeEvents = true
@@ -105,6 +103,20 @@ internal class MultiplayerTab(
 
         multiplayerServerTextField.onChange {
             fixTextFieldUrlOnType(multiplayerServerTextField)
+
+        val builtInServerText = multiplayerServerTextField.text.trim()
+        if (builtInServerText.equals(Constants.dropboxMultiplayerServer, ignoreCase = true)
+                || Constants.isYandexDiskServer(builtInServerText)) {
+            settings.multiplayer.setServer(builtInServerText)
+            errorTextField.isVisible = false
+            multiplayerServerTextField.color = Color.GREEN
+
+            val isCustomServer = Multiplayer.usesCustomServer()
+            connectionToServerButton.isEnabled = isCustomServer
+
+            for (refreshSelect in toUpdate) refreshSelect.update(isCustomServer)
+            return@onChange
+        }
 
         try {
             // we can't trim on 'fixTextFieldUrlOnType' for reasons
