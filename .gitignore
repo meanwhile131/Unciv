@@ -167,6 +167,11 @@ scenarios/
 server.auth
 MultiplayerFiles/
 
+# Yandex Disk OAuth token - injected at build time from the YANDEX_OAUTH_TOKEN secret,
+# supplied locally via YANDEX_OAUTH_TOKEN / -Dyandex.disk.oauth.token, or placed here.
+# Never commit it: it ends up inside Unciv.jar and is readable by anyone running the game.
+/core/resources/yandex_disk_token.txt
+
 /.kotlin/errors/*
 /.kotlin/sessions/*
 

@@ -114,6 +114,69 @@ object YandexDisk : FileStorage {
         }
     }
 
+    /** Outcome of a status check against the Yandex Disk API. See [checkStatus]. */
+    sealed class Status {
+        /** The API is reachable and accepted this build's OAuth token. */
+        object Online : Status()
+
+        /** The API is reachable, but this build has no OAuth token configured. */
+        object NoToken : Status()
+
+        /** The API is reachable, but rejected this build's OAuth token. */
+        object InvalidToken : Status()
+
+        /**
+         * The API could not be reached, or answered with an unexpected status code.
+         * [cause] is for logging only - it is never shown to the user.
+         */
+        class Unreachable(val cause: Throwable?) : Status()
+
+        /** Untranslated, user-facing description of this status. */
+        val description: String
+            get() = when (this) {
+                Online -> "Connected to Yandex Disk!"
+                NoToken -> "Yandex Disk is reachable, but no OAuth token is configured!"
+                InvalidToken -> "Yandex Disk rejected this build's OAuth token!"
+                is Unreachable -> "Could not reach Yandex Disk!"
+            }
+
+        companion object {
+            /**
+             * Translates a response of the user-info endpoint into a [Status].
+             *
+             * Kept separate from [YandexDisk.checkStatus] so it can be tested without network access.
+             *
+             * @param hasToken whether an OAuth token is configured for this build
+             */
+            fun fromResponse(code: Int, hasToken: Boolean): Status = when (code) {
+                in 200..299 -> Online
+                // Without a token we never got far enough to have one rejected
+                401, 403 -> if (hasToken) InvalidToken else NoToken
+                else -> Unreachable(Exception("Yandex Disk answered with HTTP $code"))
+            }
+        }
+    }
+
+    /**
+     * Checks that the Yandex Disk API is reachable and usable with this build's OAuth token.
+     *
+     * Yandex Disk has no dedicated status endpoint, so this queries the user-info endpoint
+     * ([API_BASE]), which doubles as a token validation - an unauthorized response means the
+     * API answered, so the distinction between [Status.NoToken] and [Status.InvalidToken] holds.
+     *
+     * @throws FileStorageRateLimitReached if Yandex Disk is rate limiting this account
+     */
+    fun checkStatus(): Status {
+        val response = try {
+            request("GET", API_BASE)
+        } catch (ex: FileStorageRateLimitReached) {
+            throw ex
+        } catch (ex: Throwable) {
+            return Status.Unreachable(ex)
+        }
+        return Status.fromResponse(response.code, OAUTH_TOKEN.isNotEmpty())
+    }
+
     private fun ensureFolder() {
         val url = "$API_BASE/resources?path=${urlEncodePath(ROOT_FOLDER)}"
         val resp = request("PUT", url)

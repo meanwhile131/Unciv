@@ -56,10 +56,19 @@ class MultiplayerServer(
 
     /**
      * Checks if the server is alive and sets the [serverFeatureSet] accordingly.
+     *
+     * Custom servers are probed through their `/isalive` endpoint. Yandex Disk has no such
+     * endpoint, so it is probed through its own API instead - see [YandexDisk.checkStatus].
+     *
      * @return true if the server is alive, false otherwise
      */
     suspend fun checkServerStatus(): Boolean {
         val server = getServerUrl()
+
+        // A built-in backend is identified by name, not by URL - never build a request from it
+        if (Constants.isYandexDiskServer(server))
+            return YandexDisk.checkStatus() == YandexDisk.Status.Online
+
         val isAliveSuffix = "/isalive"
         val resp = UncivKtor.client.get("$server$isAliveSuffix")
 

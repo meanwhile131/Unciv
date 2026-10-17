@@ -6,11 +6,13 @@ import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.scenes.scene2d.ui.Table
 import com.badlogic.gdx.scenes.scene2d.ui.TextField
 import com.unciv.Constants
+import com.unciv.logic.UncivShowableException
 import com.unciv.logic.files.IMediaFinder.LabeledSounds
 import com.unciv.logic.multiplayer.Multiplayer
 import com.unciv.logic.multiplayer.storage.AuthStatus
 import com.unciv.logic.multiplayer.storage.FileStorageRateLimitReached
 import com.unciv.logic.multiplayer.storage.MultiplayerAuthException
+import com.unciv.logic.multiplayer.storage.YandexDisk
 import com.unciv.ui.audio.SoundPlayer
 import com.unciv.ui.components.extensions.addSeparator
 import com.unciv.ui.components.extensions.isEnabled
@@ -92,6 +94,10 @@ internal class MultiplayerTab(
         multiplayerServerTextField.programmaticChangeEvents = true
         val serverIpTable = Table()
 
+        // Dropbox has no status endpoint we could probe, Yandex Disk does - see [YandexDisk.checkStatus]
+        fun canCheckConnection() = Multiplayer.usesCustomServer()
+                || Constants.isYandexDiskServer(multiplayerServerTextField.text)
+
         serverIpTable.add("Server address".toLabel().onClick {
             multiplayerServerTextField.text = Gdx.app.clipboard.contents
         }).colspan(2).padBottom(Constants.defaultFontSize / 2.0f).row()
@@ -112,7 +118,7 @@ internal class MultiplayerTab(
             multiplayerServerTextField.color = Color.GREEN
 
             val isCustomServer = Multiplayer.usesCustomServer()
-            connectionToServerButton.isEnabled = isCustomServer
+            connectionToServerButton.isEnabled = canCheckConnection()
 
             for (refreshSelect in toUpdate) refreshSelect.update(isCustomServer)
             return@onChange
@@ -136,7 +142,7 @@ internal class MultiplayerTab(
             }
 
             val isCustomServer = Multiplayer.usesCustomServer()
-            connectionToServerButton.isEnabled = isCustomServer
+            connectionToServerButton.isEnabled = canCheckConnection()
 
             for (refreshSelect in toUpdate) refreshSelect.update(isCustomServer)
         }
@@ -148,6 +154,14 @@ internal class MultiplayerTab(
             val popup = Popup(optionsPopup.stageToShowOn).apply {
                 addGoodSizedLabel("Awaiting response...").row()
                 open(true)
+            }
+
+            // Yandex Disk is identified by name instead of URL, so it needs a different probe
+            if (Multiplayer.usesYandexDisk()) {
+                successfullyReachedYandexDisk {
+                    popup.reuseWith(it, true)
+                }
+                return@onClick
             }
 
             successfullyConnectedToServer { connectionSuccess, authSuccess ->
@@ -241,6 +255,25 @@ internal class MultiplayerTab(
 
         addSeparator()
         return turnCheckerSelect
+    }
+
+    /**
+     * Probes the Yandex Disk API and hands the untranslated outcome to [action] on the GL thread.
+     *
+     * Unlike custom servers, a Yandex Disk failure is always actionable by the user (no token,
+     * rejected token, or rate limit), so the reason is reported instead of a plain "Failed!".
+     */
+    private fun successfullyReachedYandexDisk(action: (String) -> Unit) {
+        Concurrency.run("TestYandexDisk") {
+            val result = try {
+                YandexDisk.checkStatus().description
+            } catch (ex: UncivShowableException) { // e.g. FileStorageRateLimitReached
+                ex.message
+            } catch (_: Throwable) {
+                YandexDisk.Status.Unreachable(null).description
+            }
+            launchOnGLThread { action(result) }
+        }
     }
 
     private fun successfullyConnectedToServer(action: (Boolean, Boolean?) -> Unit) {
